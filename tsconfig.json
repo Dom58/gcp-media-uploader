@@ -8,6 +8,6 @@
         "forceConsistentCasingInFileNames": true,
         "outDir": "./dist" // Specify the output directory for compiled files
     },
-    "include": ["index.ts"],
+    "include": ["src/index.ts"],
     "exclude": ["node_modules"]
 }

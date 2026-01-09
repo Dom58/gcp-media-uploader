@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { Storage } from '@google-cloud/storage';
-import { generateRandomNumberString, sanitizeFileName } from './src/helpers';
+import { generateRandomNumberString, sanitizeFileName } from './helpers';
 
 dotenv.config();
 
@@ -50,6 +50,52 @@ app.post('/upload', upload.single('file'), async (req: Request, res: Response) =
     } catch (error) {
         console.error(error);
         res.status(500).send("Error uploading file.");
+    }
+});
+
+// Endpoint to upload multiple files
+app.post('/upload/multiple', upload.array('files'), async (req: Request, res: Response) => {
+    try {
+        const files = req.files as Express.Multer.File[];
+        const folder = "logos";
+
+        console.log(`Received ${files.length} files for upload.`);
+
+        if (!files.length) {
+            return res.status(400).send("No files uploaded!");
+        }
+
+        const fileUrls: string[] = [];
+
+        await Promise.all(files.map(async (file) => {
+            const sanitizedFileName = sanitizeFileName(file.originalname);
+            const uniqueFileName = `${generateRandomNumberString()}_${sanitizedFileName}`;
+
+            const blob = storage.bucket(bucketName).file(`${folder}/${uniqueFileName}`);
+            const blobStream = blob.createWriteStream({ resumable: false });
+
+            return new Promise((resolve, reject) => {
+                blobStream.on('error', (err) => {
+                    console.error("Upload error:", err);
+                    reject(err);
+                });
+
+                blobStream.on('finish', () => {
+                    const fileUrl = `https://storage.googleapis.com/${bucketName}/${folder}/${uniqueFileName}`;
+                    console.log(`File uploaded successfully: ${uniqueFileName}`);
+                    fileUrls.push(fileUrl);
+                    resolve(fileUrl);
+                });
+
+                blobStream.end(file.buffer);
+            });
+        }));
+
+        // Send response with all uploaded file URLs
+        res.status(200).send(`Files uploaded successfully. URLs: ${fileUrls.join(', ')}`);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Error uploading files.");
     }
 });
 
