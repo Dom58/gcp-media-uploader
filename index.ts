@@ -1,26 +1,32 @@
-require('dotenv').config();
-const express = require('express');
-const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
-const cors = require('cors');
-const { Storage } = require('@google-cloud/storage');
+import dotenv from 'dotenv';
+import express, { Request, Response } from 'express';
+import multer from 'multer';
+import { Storage } from '@google-cloud/storage';
+import { generateRandomNumberString, sanitizeFileName } from './src/helpers';
+
+dotenv.config();
 
 const app = express();
-app.use(cors());
 const PORT = process.env.PORT || 6000;
 
+// Create a Google Cloud Storage client
 const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET_NAME;
+const bucketName = process.env.GCS_BUCKET_NAME as string; // Ensure it is a string
 
 // Configure multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Endpoint to upload files
-app.post('/upload', upload.single('file'), async (req, res) => {
+app.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
     try {
         const file = req.file;
-        const folder = "sampleFolder";
-        const uniqueFileName = `${uuidv4()}_${file.originalname}`;
+        const folder = "logos";
+
+        if (!file) {
+            return res.status(400).send("No file uploaded.");
+        }
+
+        const sanitizedFileName = sanitizeFileName(file.originalname);
+        const uniqueFileName = `${generateRandomNumberString()}_${sanitizedFileName}`;
 
         const blob = storage.bucket(bucketName).file(`${folder}/${uniqueFileName}`); // Specify folder in the file path
         const blobStream = blob.createWriteStream({
@@ -33,14 +39,13 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         });
 
         blobStream.on('finish', async () => {
-            // Log the uploaded file details
             const fileUrl = `https://storage.googleapis.com/${bucketName}/${folder}/${uniqueFileName}`;
             console.log(`File uploaded successfully: ${uniqueFileName}`);
             console.log(`File URL: ${fileUrl}`);
-
             res.status(200).send(`File ${uniqueFileName} uploaded successfully. URL: ${fileUrl}`);
         });
 
+        // Start streaming the file to Google Cloud Storage
         blobStream.end(file.buffer);
     } catch (error) {
         console.error(error);
@@ -48,7 +53,6 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
