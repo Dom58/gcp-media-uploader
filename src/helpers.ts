@@ -3,7 +3,12 @@ const generateRandomNumberString = (): string => {
 }
 
 const sanitizeFileName = (originalName: string): string => {
-    return originalName.replace(/[^\w\s]/gi, '_').replace(/\s+/g, '_');
+    const lastDotIndex = originalName.lastIndexOf('.');
+    const baseName = lastDotIndex >= 0 ? originalName.substring(0, lastDotIndex) : originalName; // Get the base name
+    const extension = lastDotIndex >= 0 ? originalName.substring(lastDotIndex) : ''; // Get the extension
+
+    const sanitizedBaseName = baseName.replace(/[^\w\s]/gi, '_').replace(/\s+/g, '_');
+    return sanitizedBaseName + extension;
 }
 
 export { generateRandomNumberString, sanitizeFileName };
